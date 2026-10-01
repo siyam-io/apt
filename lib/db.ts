@@ -2,23 +2,32 @@ import pg from "pg";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-let pool: pg.Pool | null = null;
+declare global {
+  // eslint-disable-next-line no-var
+  var __apt_pool: pg.Pool | undefined;
+}
 
-export function createDatabase(connectionString = process.env.DATABASE_URL) {
+export function createDatabase(connectionString = process.env.DATABASE_URL): pg.Pool | null {
   if (!connectionString) return null;
-  pool = new pg.Pool({
-    connectionString,
-    max: 3,
-    idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 10000,
-    allowExitOnIdle: true,
-  });
-  pool.on("error", () => console.error("Idle database connection failed."));
-  return pool;
+  if (!globalThis.__apt_pool) {
+    const pool = new pg.Pool({
+      connectionString,
+      max: 10,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
+      allowExitOnIdle: true,
+    });
+    pool.on("error", () => console.error("Idle database connection failed."));
+    globalThis.__apt_pool = pool;
+  }
+  return globalThis.__apt_pool;
 }
 
 export function getPool(): pg.Pool | null {
-  return pool;
+  if (!globalThis.__apt_pool && process.env.DATABASE_URL) {
+    return createDatabase(process.env.DATABASE_URL);
+  }
+  return globalThis.__apt_pool ?? null;
 }
 
 export async function migrate(db: pg.Pool) {

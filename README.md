@@ -1,18 +1,16 @@
 # APT — API Workbench
 
-A Postman-style web app with private accounts, project-based named requests and PostgreSQL persistence. The UI is a Next.js application; the JSON API is Express.
+A Postman-style web app with private accounts, project-based named requests and PostgreSQL persistence. The entire stack (frontend UI, auth, project/request management, and proxy execution) is centralized in Next.js (App Router).
 
 ## Architecture
 
 | Layer    | Location                      | Stack                                                    |
 | -------- | ----------------------------- | -------------------------------------------------------- |
 | Frontend | `app/`, `components/`, `lib/` | Next.js (App Router), React, TypeScript, Tailwind CSS v4 |
-| API      | `server/`                     | Express 5, `pg`, `undici` (ESM, Node 24)                 |
+| API      | `app/api/`                    | Next.js Route Handlers, `pg`, `undici` (Node.js runtime)  |
 | Database | `server/schema.sql`           | PostgreSQL                                               |
 
-The browser only ever talks to the Next.js origin. `app/api/[...path]/route.ts` forwards `/api/*` to the Express server named by `API_URL`, stripping the browser `origin` header so the API's same-origin mutation guard accepts the relayed call and passing `Set-Cookie` back untouched. Express keeps its own CSP and rate limiting.
-
-The API is unchanged by the migration — `server/` is the former `src/`, moved out of `src/` because Next.js reserves `src/proxy.ts` for its own request interceptor.
+All API endpoints are native Next.js route handlers (`app/api/*`), unified in a single process. Security headers, CSP, and same-origin protections are enforced globally via `middleware.ts`.
 
 ## Design system
 
@@ -36,19 +34,18 @@ The interface implements a cyberpunk / glitch design system. Every color, glow, 
 
 ## Local startup
 
-Requires Node.js 24 and PostgreSQL (a Neon connection also works locally). The frontend and API run as two processes.
+Requires Node.js 24 and PostgreSQL (a Neon connection also works locally). Everything runs as a single unified Next.js process:
 
 ```bash
 npm ci
 export DATABASE_URL='YOUR_POSTGRESQL_CONNECTION_STRING'
 npm run db:migrate
-npm run dev:api   # Express API on http://127.0.0.1:3001
-npm run dev       # Next.js UI on http://localhost:3000  (separate terminal)
+npm run dev       # Next.js UI & centralized API on http://localhost:3000
 ```
 
-Open http://localhost:3000 and create an account. There are no default credentials. Without `DATABASE_URL`, the API reports `configured: false` and the UI shows setup instructions instead of the form. Set `API_URL` if the API is not on `http://127.0.0.1:3001`, and `PORT` to change the API listener.
+Open http://localhost:3000 and create an account. There are no default credentials. Without `DATABASE_URL`, the API reports `configured: false` and the UI shows setup instructions instead of the form.
 
-Local mode binds the API to 127.0.0.1 and allows local development API targets. Production mode requires `APP_URL`, secure cookies and public API targets. All account/project/request data lives in PostgreSQL, not browser storage.
+Local mode allows local development API targets. Production mode requires `APP_URL`, secure cookies and public API targets. All account/project/request data lives in PostgreSQL, not browser storage.
 
 ## Verification
 
