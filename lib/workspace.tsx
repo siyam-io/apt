@@ -92,6 +92,9 @@ type Store = {
   setPretty: (value: boolean) => void;
   updateForm: (patch: Partial<RequestDraft>) => void;
   updateAuth: (patch: Partial<AuthState>) => void;
+  openAccount: (mode?: "login" | "register") => void;
+  closeAccount: () => void;
+  isGuest: boolean;
   setAccountMode: (mode: "login" | "register") => void;
   submitAccount: (
     email: string,
@@ -186,20 +189,42 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setResponse({ status: "idle" });
   }, []);
 
+  const enterGuest = useCallback(() => {
+    setUser(null);
+    const guestProject: Project = {
+      id: "local-guest",
+      name: "Guest Workspace",
+      created_at: new Date().toISOString(),
+    };
+    setProjects([guestProject]);
+    setProjectId("local-guest");
+    try {
+      const rawSaved = localStorage.getItem("apt-guest-saved");
+      if (rawSaved) setSaved(JSON.parse(rawSaved));
+      const rawHistory = localStorage.getItem("apt-guest-history");
+      if (rawHistory) setHistory(JSON.parse(rawHistory));
+    } catch {
+      /* LocalStorage optional */
+    }
+    setStatus("workspace");
+  }, []);
+
+  const openAccount = useCallback((mode: "login" | "register" = "login") => {
+    setAccount((current) => ({ ...current, mode, error: "" }));
+    setStatus("account");
+  }, []);
+
+  const closeAccount = useCallback(() => {
+    setStatus("workspace");
+  }, []);
+
   const signOut = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
     setUser(null);
-    setProjectId(null);
-    setProjects([]);
-    setSaved([]);
-    setHistory([]);
-    setSending(false);
-    setSaving(false);
     resetForm();
-    setAccount((current) => ({ ...current, error: "", mode: "login" }));
-    setStatus("account");
-  }, [resetForm]);
+    enterGuest();
+  }, [enterGuest, resetForm]);
 
   useEffect(() => {
     setUnauthorizedHandler(signOut);
@@ -210,6 +235,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setSaved([]);
     setHistory([]);
     if (!id) return;
+    if (id === "local-guest") {
+      try {
+        const rawSaved = localStorage.getItem("apt-guest-saved");
+        if (rawSaved) setSaved(JSON.parse(rawSaved));
+        const rawHistory = localStorage.getItem("apt-guest-history");
+        if (rawHistory) setHistory(JSON.parse(rawHistory));
+      } catch {}
+      return;
+    }
     const [collection, recent] = await Promise.all([
       api<{ requests: SavedRequest[] }>(`/api/projects/${id}/requests`),
       api<{ requests: SavedRequest[] }>(`/api/projects/${id}/history`),
@@ -237,12 +271,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const enter = useCallback(
     async (nextUser: User) => {
       setUser(nextUser);
-      const data = await api<{ projects: Project[] }>("/api/projects");
-      setProjects(data.projects);
-      await selectProject(data.projects[0]?.id ?? null);
+      try {
+        const data = await api<{ projects: Project[] }>("/api/projects");
+        setProjects(data.projects);
+        await selectProject(data.projects[0]?.id ?? null);
+      } catch {
+        enterGuest();
+      }
       setStatus("workspace");
     },
-    [selectProject],
+    [enterGuest, selectProject],
   );
 
   useEffect(() => {
@@ -250,29 +288,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     booted.current = true;
     (async () => {
       try {
-        const serverConfig = await api<ServerConfig>("/api/config");
-        setConfig(serverConfig);
-        if (!serverConfig.configured) {
-          setAccount((current) => ({
-            ...current,
-            setup:
-              "Database setup needed: set DATABASE_URL, then run `npm run db:migrate`. On Vercel, also set API_URL to the deployed API address.",
-          }));
-          setStatus("account");
-          return;
+        const serverConfig = await api<ServerConfig>("/api/config").catch(() => null);
+        if (serverConfig) setConfig(serverConfig);
+        if (serverConfig?.configured) {
+          try {
+            const data = await api<{ user: User }>("/api/auth/me");
+            await enter(data.user);
+            return;
+          } catch {
+            /* Not logged in -> Enter guest workspace! */
+          }
         }
-        const data = await api<{ user: User }>("/api/auth/me");
-        await enter(data.user);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          setStatus("account");
-          return;
-        }
-        setAccount((current) => ({ ...current, error: messageOf(error) }));
-        setStatus("account");
+        enterGuest();
+      } catch {
+        enterGuest();
       }
     })();
-  }, [enter]);
+  }, [enter, enterGuest]);
 
   useEffect(() => {
     try {
@@ -317,7 +349,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [notify, saving, sending, signOut, switching]);
 
+  const isGuest = !user || projectId === "local-guest";
+
   const createProject = useCallback(async () => {
+    if (isGuest) {
+      notify("Sign in to create persistent cloud projects.");
+      openAccount("register");
+      return;
+    }
     if (sending || saving || switching) {
       notify("Wait for the current operation, or cancel the request.");
       return;
@@ -337,9 +376,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSwitching(false);
     }
-  }, [notify, requestName, saving, selectProject, sending, switching]);
+  }, [isGuest, notify, openAccount, requestName, saving, selectProject, sending, switching]);
 
   const renameProject = useCallback(async () => {
+    if (isGuest) {
+      notify("Guest workspace cannot be renamed.");
+      return;
+    }
     if (sending || saving || switching || !projectId) {
       if (!projectId) return;
       notify("Wait for the current operation, or cancel the request.");
@@ -365,9 +408,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSwitching(false);
     }
-  }, [notify, projectId, projects, requestName, saving, sending, switching]);
+  }, [isGuest, notify, projectId, projects, requestName, saving, sending, switching]);
 
   const deleteProject = useCallback(async () => {
+    if (isGuest) {
+      notify("Guest workspace cannot be deleted.");
+      return;
+    }
     if (sending || saving || switching || !projectId) {
       if (!projectId) return;
       notify("Wait for the current operation, or cancel the request.");
@@ -394,6 +441,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [
     confirmAction,
+    isGuest,
     notify,
     projectId,
     projects,
@@ -464,6 +512,35 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       notify("Enter a request name and URL.");
       return;
     }
+
+    if (isGuest) {
+      const localItem: SavedRequest = {
+        id: activeId || `guest-req-${Date.now()}`,
+        name: form.name.trim() || "Untitled request",
+        method: payload.method,
+        url: payload.url,
+        headers: payload.headers,
+        params: payload.params,
+        body: payload.body,
+        timeout: payload.timeout,
+        updatedAt: new Date().toISOString(),
+      };
+      setSaved((current) => {
+        const index = current.findIndex((row) => row.id === localItem.id);
+        const next =
+          index >= 0
+            ? current.map((r) => (r.id === localItem.id ? localItem : r))
+            : [localItem, ...current];
+        try {
+          localStorage.setItem("apt-guest-saved", JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+      setActiveId(localItem.id);
+      notify("Request saved to local workspace.");
+      return;
+    }
+
     if (
       payload.body &&
       !(await confirmAction({
@@ -501,6 +578,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     confirmAction,
     draft,
     form.name,
+    isGuest,
     notify,
     projectId,
     saving,
@@ -520,6 +598,30 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         action: "Delete",
       });
       if (!confirmed) return;
+
+      if (isGuest) {
+        if (mode === "saved") {
+          setSaved((current) => {
+            const next = current.filter((row) => row.id !== item.id);
+            try {
+              localStorage.setItem("apt-guest-saved", JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+          if (activeIdRef.current === item.id) resetForm();
+        } else {
+          setHistory((current) => {
+            const next = current.filter((row) => row.id !== item.id);
+            try {
+              localStorage.setItem("apt-guest-history", JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+        }
+        notify("Removed from local workspace.");
+        return;
+      }
+
       setSaving(true);
       try {
         await api(
@@ -538,7 +640,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setSaving(false);
       }
     },
-    [confirmAction, notify, projectId, resetForm, saving, sending, switching],
+    [confirmAction, isGuest, notify, projectId, resetForm, saving, sending, switching],
   );
 
   /**
@@ -548,8 +650,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
    */
   const performSend = useCallback(
     async (item: RequestDraft) => {
-      if (!user || !projectId) {
-        notify("Sign in and select a project first.");
+      if (!projectId) {
+        notify("No workspace active.");
         return;
       }
       if (sending || saving || switching) return;
@@ -609,21 +711,42 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setSending(true);
       setResponse({ status: "pending" });
 
-      try {
-        const recorded = await api<{ request: SavedRequest }>(
-          `/api/projects/${projectId}/history`,
-          {
-            method: "POST",
-            json: { ...sanitize(item), body: "" },
-            signal: controller.signal,
-          },
-        );
-        if (projectIdRef.current === projectId) {
-          setHistory((current) => [recorded.request, ...current].slice(0, 50));
-        }
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          notify(`History not saved: ${messageOf(error)}`);
+      if (isGuest) {
+        const localHist: SavedRequest = {
+          id: `guest-hist-${Date.now()}`,
+          name: item.name || "Untitled request",
+          method: item.method,
+          url: target.href,
+          headers: item.headers,
+          params: item.params,
+          body: "",
+          timeout: item.timeout,
+          updatedAt: new Date().toISOString(),
+        };
+        setHistory((current) => {
+          const next = [localHist, ...current].slice(0, 50);
+          try {
+            localStorage.setItem("apt-guest-history", JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      } else {
+        try {
+          const recorded = await api<{ request: SavedRequest }>(
+            `/api/projects/${projectId}/history`,
+            {
+              method: "POST",
+              json: { ...sanitize(item), body: "" },
+              signal: controller.signal,
+            },
+          );
+          if (projectIdRef.current === projectId) {
+            setHistory((current) => [recorded.request, ...current].slice(0, 50));
+          }
+        } catch (error) {
+          if ((error as Error).name !== "AbortError") {
+            notify(`History not saved: ${messageOf(error)}`);
+          }
         }
       }
 
@@ -765,6 +888,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setPretty,
       updateForm: (patch) => setForm((current) => ({ ...current, ...patch })),
       updateAuth: (patch) => setAuth((current) => ({ ...current, ...patch })),
+      openAccount,
+      closeAccount,
+      isGuest,
       setAccountMode: (mode) =>
         setAccount((current) => ({ ...current, mode, error: "" })),
       submitAccount,
@@ -784,6 +910,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       importLegacy,
     }),
     [
+      openAccount,
+      closeAccount,
+      isGuest,
       account,
       activeId,
       auth,

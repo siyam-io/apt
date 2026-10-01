@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureDb, requireAuth } from "@/lib/handler";
-import { rateLimit } from "@/lib/auth";
+import { getPool } from "@/lib/db";
+import { rateLimit, authenticate, ipKey } from "@/lib/auth";
 import { readConfig } from "@/lib/config";
 import { publicDispatcher } from "@/lib/network";
 import { fetch as undiciFetch } from "undici";
@@ -8,14 +8,33 @@ import { fetch as undiciFetch } from "undici";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
-  if (auth instanceof Response) return auth;
-
-  const pool = ensureDb();
   const config = readConfig();
+  const pool = getPool();
 
-  // Rate limit: 60 requests per minute per user
-  await rateLimit(pool, `proxy:${auth.user!.id}`, 60, 60);
+  // Support guest mode + logged-in mode
+  let userId: string | null = null;
+  if (pool) {
+    try {
+      const auth = await authenticate(pool, config, request);
+      if ("user" in auth && auth.user) {
+        userId = auth.user.id;
+      }
+    } catch {
+      // Continue as guest
+    }
+
+    try {
+      if (userId) {
+        await rateLimit(pool, `proxy:${userId}`, 60, 60);
+      } else {
+        await rateLimit(pool, `proxy-guest:${ipKey(config, request)}`, 30, 60);
+      }
+    } catch (err: any) {
+      if (err?.status === 429) {
+        return NextResponse.json({ error: err.message }, { status: 429 });
+      }
+    }
+  }
 
   let bodyData: any;
   try {

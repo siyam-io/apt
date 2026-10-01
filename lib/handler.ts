@@ -6,10 +6,19 @@ import { authenticate, type RequestContext, type AuthError } from "./auth";
 
 const config = readConfig();
 
+export class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = "HttpError";
+  }
+}
+
 export function ensureDb(): Pool {
   const pool = getPool();
   if (!pool) {
-    throw errorResponse(
+    throw new HttpError(
       503,
       "Database not configured. Set DATABASE_URL and run npm run db:migrate.",
     );
@@ -20,7 +29,12 @@ export function ensureDb(): Pool {
 export async function requireAuth(
   request: NextRequest,
 ): Promise<RequestContext | NextResponse> {
-  const pool = ensureDb();
+  let pool: Pool;
+  try {
+    pool = ensureDb();
+  } catch (err: any) {
+    return errorResponse(err.status || 503, err.message);
+  }
   const result = await authenticate(pool, config, request);
   if ("status" in result) {
     return errorResponse(result.status, result.message);

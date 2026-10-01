@@ -10,35 +10,68 @@ import { ResponsePanel } from "./response-panel";
 import { Sidebar } from "./sidebar";
 
 function Topbar() {
-  const { projects, projectId, config } = useWorkspace();
+  const { projects, projectId, config, isGuest, openAccount } = useWorkspace();
   const project = projects.find((item) => item.id === projectId);
 
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/85 px-6 py-3.5 backdrop-blur-md lg:px-10">
-      <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
-        workspace
-        <span className="mx-2 text-accent">/</span>
-        <strong className="font-display font-bold tracking-[0.2em] text-foreground">
-          {project?.name ?? "no project selected"}
-        </strong>
-      </p>
-      <span
-        className={cn(
-          "chamfer-xs flex items-center gap-2 border px-3 py-1.5 font-accent text-[10px] uppercase tracking-[0.25em]",
-          config?.hosted
-            ? "border-accent-tertiary/50 text-accent-tertiary"
-            : "border-accent/50 text-accent",
-        )}
-      >
+      <div className="flex items-center gap-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
+          workspace
+          <span className="mx-2 text-accent">/</span>
+          <strong className="font-display font-bold tracking-[0.2em] text-foreground">
+            {project?.name ?? "Guest Workspace"}
+          </strong>
+        </p>
+
+        <nav className="hidden items-center gap-4 text-xs font-mono uppercase tracking-wider text-muted-foreground md:flex">
+          <a href="/" className="hover:text-foreground transition-colors">Home</a>
+          <a href="/features" className="hover:text-foreground transition-colors">Features</a>
+          <a href="/docs" className="hover:text-foreground transition-colors">Docs</a>
+          <a href="/about" className="hover:text-foreground transition-colors">About</a>
+        </nav>
+      </div>
+
+      <div className="flex items-center gap-3">
+        {isGuest ? (
+          <button
+            type="button"
+            onClick={() => openAccount("register")}
+            className="chamfer-xs flex items-center gap-2 border border-accent/40 bg-accent/10 px-3 py-1 font-accent text-[10px] uppercase tracking-[0.2em] text-accent transition-colors hover:bg-accent hover:text-background"
+          >
+            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+            Connect Cloud Project
+          </button>
+        ) : null}
+
         <span
-          aria-hidden
           className={cn(
-            "size-1.5 animate-flicker",
-            config?.hosted ? "bg-accent-tertiary" : "bg-accent",
+            "chamfer-xs flex items-center gap-2 border px-3 py-1.5 font-accent text-[10px] uppercase tracking-[0.25em]",
+            isGuest
+              ? "border-accent/40 text-accent/80"
+              : config?.hosted
+                ? "border-accent-tertiary/50 text-accent-tertiary"
+                : "border-accent/50 text-accent",
           )}
-        />
-        {config?.hosted ? "cloud workspace" : "local server"}
-      </span>
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "size-1.5 animate-flicker",
+              isGuest
+                ? "bg-accent/80"
+                : config?.hosted
+                  ? "bg-accent-tertiary"
+                  : "bg-accent",
+            )}
+          />
+          {isGuest
+            ? "guest / local storage"
+            : config?.hosted
+              ? "cloud workspace"
+              : "local server"}
+        </span>
+      </div>
     </header>
   );
 }

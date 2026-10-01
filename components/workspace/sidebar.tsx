@@ -37,6 +37,8 @@ export function Sidebar() {
     history,
     hasLegacyImport,
     importLegacy,
+    openAccount,
+    isGuest,
     logout,
     sending,
     saving,
@@ -48,18 +50,26 @@ export function Sidebar() {
 
   return (
     <aside className="relative z-10 flex w-full shrink-0 flex-col gap-5 border-r border-border bg-card/60 p-5 backdrop-blur-sm lg:h-dvh lg:w-[21rem] lg:sticky lg:top-0 lg:overflow-y-auto">
-      <div className="flex items-center gap-3">
-        <span className="chamfer-xs grid size-9 shrink-0 place-items-center bg-accent font-display text-sm font-bold text-background glow-accent-sm">
-          a
-        </span>
-        <span className="flex flex-col">
-          <span className="font-display text-sm font-bold uppercase tracking-[0.3em] text-foreground">
-            apt
+      <div className="flex items-center justify-between">
+        <a href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+          <span className="chamfer-xs grid size-9 shrink-0 place-items-center bg-accent font-display text-sm font-bold text-background glow-accent-sm">
+            a
           </span>
-          <span className="font-accent text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
-            api workbench
+          <span className="flex flex-col">
+            <span className="font-display text-sm font-bold uppercase tracking-[0.3em] text-foreground">
+              apt
+            </span>
+            <span className="font-accent text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
+              api workbench
+            </span>
           </span>
-        </span>
+        </a>
+        <a
+          href="/"
+          className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:text-accent"
+        >
+          ← Home
+        </a>
       </div>
 
       <div className="flex flex-col gap-2.5">
@@ -194,25 +204,47 @@ export function Sidebar() {
       ) : null}
 
       <div className="mt-auto flex items-center gap-2.5 border-t border-border pt-4">
-        <Radio
-          aria-hidden
-          className="size-3.5 shrink-0 text-accent animate-flicker"
-          strokeWidth={1.5}
-        />
-        <span
-          title={user?.email}
-          className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground"
-        >
-          {user?.name}
-        </span>
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="flex min-h-11 shrink-0 items-center gap-1.5 px-1 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:text-destructive"
-        >
-          <LogOut className="size-3.5" strokeWidth={1.5} />
-          sign out
-        </button>
+        {isGuest ? (
+          <>
+            <Radio
+              aria-hidden
+              className="size-3.5 shrink-0 text-accent/70 animate-pulse"
+              strokeWidth={1.5}
+            />
+            <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-accent">
+              Guest Session
+            </span>
+            <button
+              type="button"
+              onClick={() => openAccount("login")}
+              className="chamfer-xs flex min-h-8 shrink-0 items-center gap-1.5 border border-accent/40 bg-accent/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:bg-accent hover:text-background"
+            >
+              Sign in
+            </button>
+          </>
+        ) : (
+          <>
+            <Radio
+              aria-hidden
+              className="size-3.5 shrink-0 text-accent animate-flicker"
+              strokeWidth={1.5}
+            />
+            <span
+              title={user?.email}
+              className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground"
+            >
+              {user?.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="flex min-h-11 shrink-0 items-center gap-1.5 px-1 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:text-destructive"
+            >
+              <LogOut className="size-3.5" strokeWidth={1.5} />
+              sign out
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );

@@ -15,7 +15,7 @@ const FEATURES = [
 ] as const;
 
 export function AccountScreen() {
-  const { account, setAccountMode, submitAccount, config } = useWorkspace();
+  const { account, setAccountMode, submitAccount, closeAccount, config } = useWorkspace();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -215,6 +215,17 @@ export function AccountScreen() {
               {registering
                 ? "Already have an account? Sign in"
                 : "New here? create an account"}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              surface="bg-card"
+              className="mt-2 w-full border-border/80 text-muted-foreground hover:text-foreground"
+              disabled={account.busy}
+              onClick={() => closeAccount()}
+            >
+              ← Continue as Guest (No login required)
             </Button>
 
             {account.setup ? (
