@@ -6,23 +6,19 @@ import Link from "next/link";
 
 export function QuickTester() {
   const [method, setMethod] = useState("GET");
-  const [url, setUrl] = useState("/api/echo?status=workbench-ready&target=guest");
+  const [url, setUrl] = useState("https://jsonplaceholder.typicode.com/posts/1");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<any>({
     status: 200,
     statusText: "OK",
-    duration: 14,
-    size: 248,
+    duration: 38,
+    size: 292,
     body: JSON.stringify(
       {
-        message: "Your API workbench is ready.",
-        method: "GET",
-        query: {
-          status: "workbench-ready",
-          target: "guest",
-        },
-        guestMode: true,
-        note: "No authentication required. Hit any endpoint right here.",
+        userId: 1,
+        id: 1,
+        title: "sunt aut facere repellat provident occaecati excepturi optio reprehenderit",
+        body: "quia et suscipit suscipit recusandae consequuntur expedita et cum reprehenderit molestiae ut ut quas totam nostrum rerum est autem sunt rem eveniet architecto",
       },
       null,
       2,
@@ -31,9 +27,10 @@ export function QuickTester() {
   const [copied, setCopied] = useState(false);
 
   const sampleEndpoints = [
+    { name: "JSONPlaceholder Post #1", method: "GET", url: "https://jsonplaceholder.typicode.com/posts/1" },
+    { name: "JSONPlaceholder Users", method: "GET", url: "https://jsonplaceholder.typicode.com/users/1" },
+    { name: "JSONPlaceholder Comments", method: "GET", url: "https://jsonplaceholder.typicode.com/comments?postId=1" },
     { name: "Local Echo Probe", method: "GET", url: "/api/echo?demo=instant-test" },
-    { name: "JSONPlaceholder Posts", method: "GET", url: "https://jsonplaceholder.typicode.com/posts/1" },
-    { name: "HTTPBin Status", method: "GET", url: "https://httpbin.org/get?apt=fast" },
   ];
 
   async function handleSend() {

@@ -11,7 +11,7 @@ export function VariablesEditor() {
 
   const presets = [
     { key: "baseUrl", value: typeof window !== "undefined" ? window.location.origin : "http://localhost:3001" },
-    { key: "echoUrl", value: "/api/echo" },
+    { key: "jsonPlaceholder", value: "https://jsonplaceholder.typicode.com" },
     { key: "token", value: "dev_secret_token_123" },
   ];
 

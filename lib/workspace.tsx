@@ -860,11 +860,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const runExample = useCallback(() => {
     const example: RequestDraft = {
-      name: "Example echo",
+      name: "JSONPlaceholder Post #1",
       method: "GET",
-      url: `${window.location.origin}/api/echo?hello=world`,
+      url: "https://jsonplaceholder.typicode.com/posts/1",
       params: [],
-      headers: [],
+      headers: [
+        { key: "Accept", value: "application/json", enabled: true },
+      ],
       body: "",
       timeout: 30000,
     };
