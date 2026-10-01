@@ -10,8 +10,9 @@ import { ResponsePanel } from "./response-panel";
 import { Sidebar } from "./sidebar";
 
 function Topbar() {
-  const { projects, projectId, config, isGuest, openAccount } = useWorkspace();
+  const { projects, projectId, config, isGuest, openAccount, variables } = useWorkspace();
   const project = projects.find((item) => item.id === projectId);
+  const activeBaseUrl = variables.find((v) => v.key === "baseUrl" && v.enabled)?.value || "http://localhost:3001";
 
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/85 px-6 py-3.5 backdrop-blur-md lg:px-10">
@@ -24,7 +25,14 @@ function Topbar() {
           </strong>
         </p>
 
-        <nav className="hidden items-center gap-4 text-xs font-mono uppercase tracking-wider text-muted-foreground md:flex">
+        {/* Active Environment Variable Pill */}
+        <div className="hidden lg:flex items-center gap-1.5 font-mono text-[10px] border border-accent/30 bg-accent/5 px-2.5 py-1 chamfer-xs">
+          <span className="font-bold text-accent">{"{"}baseUrl{"}"}</span>
+          <span className="opacity-40">→</span>
+          <span className="text-foreground truncate max-w-[190px]">{activeBaseUrl}</span>
+        </div>
+
+        <nav className="hidden items-center gap-4 text-xs font-mono uppercase tracking-wider text-muted-foreground xl:flex">
           <a href="/" className="hover:text-foreground transition-colors">Home</a>
           <a href="/features" className="hover:text-foreground transition-colors">Features</a>
           <a href="/docs" className="hover:text-foreground transition-colors">Docs</a>

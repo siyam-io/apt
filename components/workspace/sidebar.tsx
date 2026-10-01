@@ -153,7 +153,7 @@ export function Sidebar() {
             placeholder="Find a request…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="min-h-10 w-full bg-transparent font-mono text-xs text-accent outline-none placeholder:text-muted-foreground focus-visible:shadow-none"
+            className="min-h-10 w-full bg-transparent font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:shadow-none"
           />
         </span>
       </label>

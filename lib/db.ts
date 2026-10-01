@@ -10,12 +10,18 @@ declare global {
 export function createDatabase(connectionString = process.env.DATABASE_URL): pg.Pool | null {
   if (!connectionString) return null;
   if (!globalThis.__apt_pool) {
+    const isRemote =
+      !connectionString.includes("localhost") &&
+      !connectionString.includes("127.0.0.1") &&
+      !connectionString.includes("::1");
+
     const pool = new pg.Pool({
       connectionString,
       max: 10,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 10000,
       allowExitOnIdle: true,
+      ...(isRemote ? { ssl: { rejectUnauthorized: false } } : {}),
     });
     pool.on("error", () => console.error("Idle database connection failed."));
     globalThis.__apt_pool = pool;

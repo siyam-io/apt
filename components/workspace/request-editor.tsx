@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Code2, Plus, Save } from "lucide-react";
+import { ArrowUpRight, Code2, Plus, Save, Braces } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select, Textarea } from "@/components/ui/input";
@@ -9,12 +9,14 @@ import { cn } from "@/lib/cn";
 import { emptyRow, HTTP_METHODS, type HttpMethod } from "@/lib/types";
 import { useWorkspace } from "@/lib/workspace";
 import { KeyValueRows } from "./key-value-rows";
+import { VariablesEditor } from "./variables-editor";
 
 const TABS = [
   ["params", "Params"],
   ["headers", "Headers"],
   ["body", "Body"],
   ["auth", "Authorization"],
+  ["vars", "Variables ({x})"],
   ["settings", "Settings"],
 ] as const;
 
@@ -61,6 +63,8 @@ export function RequestEditor() {
     focusToken,
     projects,
     projectId,
+    variables,
+    resolveVariables,
   } = useWorkspace();
 
   const [tab, setTab] = useState<TabId>("params");
@@ -136,9 +140,9 @@ export function RequestEditor() {
             <Input
               ref={urlRef}
               prompt
-              type="url"
+              type="text"
               aria-label="Request URL"
-              placeholder="https://api.example.com/v1/users"
+              placeholder="https://api.example.com/v1/users or {baseUrl}/api/users"
               value={form.url}
               required
               onChange={(event) => updateForm({ url: event.target.value })}
@@ -162,6 +166,27 @@ export function RequestEditor() {
             ) : null}
           </div>
         </div>
+
+        {/* Live Variable URL Preview */}
+        {form.url.includes("{") ? (
+          <div className="chamfer-xs flex flex-wrap items-center justify-between gap-3 border border-accent/40 bg-accent/5 px-4 py-2 font-mono text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-accent text-[9px] uppercase tracking-wider text-muted-foreground">
+                Resolved URL:
+              </span>
+              <span className="font-bold text-accent underline decoration-accent/40">
+                {resolveVariables(form.url)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTab("vars")}
+              className="font-accent text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-accent"
+            >
+              Configure Variables ({variables.length}) →
+            </button>
+          </div>
+        ) : null}
 
         <div
           role="tablist"
@@ -311,6 +336,8 @@ export function RequestEditor() {
             </p>
           </section>
         ) : null}
+
+        {tab === "vars" ? <VariablesEditor /> : null}
 
         {tab === "settings" ? (
           <section className="flex max-w-xl flex-col gap-5">

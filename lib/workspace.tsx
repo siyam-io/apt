@@ -24,6 +24,8 @@ import {
   type SavedRequest,
   type ServerConfig,
   type User,
+  type EnvironmentVariable,
+  interpolateVariables,
 } from "./types";
 
 const LEGACY_STORAGE_KEY = "apt-workspace-v1";
@@ -116,6 +118,12 @@ type Store = {
   cancelSend: () => void;
   formatBody: () => void;
   importLegacy: () => Promise<void>;
+  variables: EnvironmentVariable[];
+  setVariables: React.Dispatch<React.SetStateAction<EnvironmentVariable[]>>;
+  addVariable: (key?: string, value?: string) => void;
+  updateVariable: (index: number, patch: Partial<EnvironmentVariable>) => void;
+  deleteVariable: (index: number) => void;
+  resolveVariables: (text: string) => string;
 };
 
 const WorkspaceContext = createContext<Store | null>(null);
@@ -157,6 +165,58 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [hasLegacyImport, setHasLegacyImport] = useState(false);
   const [focusToken, setFocusToken] = useState(0);
+  const [variables, setVariables] = useState<EnvironmentVariable[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("apt-variables");
+        if (stored) return JSON.parse(stored);
+      } catch { }
+      return [
+        {
+          key: "baseUrl",
+          value: window.location.origin,
+          enabled: true,
+        },
+      ];
+    }
+    return [
+      {
+        key: "baseUrl",
+        value: "http://localhost:3001",
+        enabled: true,
+      },
+    ];
+  });
+
+  const variablesRef = useRef(variables);
+  useEffect(() => {
+    variablesRef.current = variables;
+    try {
+      localStorage.setItem("apt-variables", JSON.stringify(variables));
+    } catch { }
+  }, [variables]);
+
+  const addVariable = useCallback((key = "", value = "") => {
+    setVariables((prev) => [...prev, { key, value, enabled: true }]);
+  }, []);
+
+  const updateVariable = useCallback(
+    (index: number, patch: Partial<EnvironmentVariable>) => {
+      setVariables((prev) =>
+        prev.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+      );
+    },
+    [],
+  );
+
+  const deleteVariable = useCallback((index: number) => {
+    setVariables((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const resolveVariables = useCallback(
+    (text: string) => interpolateVariables(text, variables),
+    [variables],
+  );
 
   const controllerRef = useRef<AbortController | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,7 +301,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         if (rawSaved) setSaved(JSON.parse(rawSaved));
         const rawHistory = localStorage.getItem("apt-guest-history");
         if (rawHistory) setHistory(JSON.parse(rawHistory));
-      } catch {}
+      } catch { }
       return;
     }
     const [collection, recent] = await Promise.all([
@@ -533,7 +593,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             : [localItem, ...current];
         try {
           localStorage.setItem("apt-guest-saved", JSON.stringify(next));
-        } catch {}
+        } catch { }
         return next;
       });
       setActiveId(localItem.id);
@@ -605,7 +665,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             const next = current.filter((row) => row.id !== item.id);
             try {
               localStorage.setItem("apt-guest-saved", JSON.stringify(next));
-            } catch {}
+            } catch { }
             return next;
           });
           if (activeIdRef.current === item.id) resetForm();
@@ -614,7 +674,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             const next = current.filter((row) => row.id !== item.id);
             try {
               localStorage.setItem("apt-guest-history", JSON.stringify(next));
-            } catch {}
+            } catch { }
             return next;
           });
         }
@@ -658,7 +718,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       let target: URL;
       try {
-        target = new URL(item.url);
+        let rawUrl = interpolateVariables(item.url.trim(), variablesRef.current);
+        if (rawUrl.startsWith("/")) {
+          rawUrl = `${window.location.origin}${rawUrl}`;
+        } else if (!/^https?:\/\//i.test(rawUrl)) {
+          rawUrl = `http://${rawUrl}`;
+        }
+        target = new URL(rawUrl);
         if (!["http:", "https:"].includes(target.protocol)) throw new Error();
       } catch {
         notify("Enter a valid HTTP or HTTPS URL.");
@@ -667,13 +733,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       item.params
         .filter((row) => row.enabled)
-        .forEach((row) => target.searchParams.append(row.key, row.value));
+        .forEach((row) => {
+          const k = interpolateVariables(row.key, variablesRef.current);
+          const v = interpolateVariables(row.value, variablesRef.current);
+          if (k) target.searchParams.append(k, v);
+        });
 
       const headers: Record<string, string> = {};
       item.headers
         .filter((row) => row.enabled)
         .forEach((row) => {
-          headers[row.key] = row.value;
+          const k = interpolateVariables(row.key, variablesRef.current);
+          const v = interpolateVariables(row.value, variablesRef.current);
+          if (k) headers[k] = v;
         });
 
       if (auth.type !== "none") {
@@ -684,22 +756,24 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const key =
           auth.type === "bearer"
             ? "Authorization"
-            : auth.key.trim() || "X-API-Key";
+            : interpolateVariables(auth.key.trim(), variablesRef.current) || "X-API-Key";
         for (const name of Object.keys(headers)) {
           if (name.toLowerCase() === key.toLowerCase()) delete headers[name];
         }
+        const resolvedToken = interpolateVariables(auth.token.trim(), variablesRef.current);
         headers[key] =
-          auth.type === "bearer" ? `Bearer ${auth.token}` : auth.token;
+          auth.type === "bearer" ? `Bearer ${resolvedToken}` : resolvedToken;
       }
 
+      const interpolatedBody = interpolateVariables(item.body, variablesRef.current);
       if (
-        item.body &&
+        interpolatedBody &&
         !Object.keys(headers).some(
           (key) => key.toLowerCase() === "content-type",
         )
       ) {
         try {
-          JSON.parse(item.body);
+          JSON.parse(interpolatedBody);
           headers["Content-Type"] = "application/json";
         } catch {
           /* Send raw text exactly as entered. */
@@ -727,7 +801,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           const next = [localHist, ...current].slice(0, 50);
           try {
             localStorage.setItem("apt-guest-history", JSON.stringify(next));
-          } catch {}
+          } catch { }
           return next;
         });
       } else {
@@ -762,7 +836,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             url: target.href,
             method: item.method,
             headers,
-            body: item.body,
+            body: interpolatedBody,
             timeout: item.timeout,
           },
           signal: controller.signal,
@@ -908,6 +982,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       cancelSend,
       formatBody,
       importLegacy,
+      variables,
+      setVariables,
+      addVariable,
+      updateVariable,
+      deleteVariable,
+      resolveVariables,
     }),
     [
       openAccount,
@@ -951,6 +1031,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       submitAccount,
       switching,
       user,
+      variables,
+      addVariable,
+      updateVariable,
+      deleteVariable,
+      resolveVariables,
     ],
   );
 

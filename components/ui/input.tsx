@@ -6,7 +6,7 @@ const FRAME =
   "chamfer-sm relative bg-border p-px transition-[background-color,filter] duration-150 focus-within:bg-accent focus-within:glow-accent-sm";
 
 const CONTROL =
-  "w-full bg-transparent font-mono text-accent outline-none placeholder:font-mono placeholder:text-muted-foreground";
+  "w-full bg-transparent font-mono text-foreground outline-none placeholder:font-mono placeholder:text-muted-foreground";
 
 const CONTROL_SIZE = {
   sm: "min-h-10 py-2 text-xs",
@@ -50,7 +50,7 @@ export function Input({
 
   return (
     <div className={cn(FRAME, frameClassName)}>
-      <div className="chamfer-sm relative flex items-center">
+      <div className="chamfer-sm relative flex w-full items-center bg-card">
         {prompt ? (
           <span
             aria-hidden
@@ -79,15 +79,17 @@ export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 export function Textarea({ className, ...props }: TextareaProps) {
   return (
     <div className={FRAME}>
-      <textarea
-        spellCheck={false}
-        className={cn(
-          CONTROL,
-          "min-h-40 resize-y p-3 text-sm leading-relaxed focus-visible:shadow-none",
-          className,
-        )}
-        {...props}
-      />
+      <div className="chamfer-sm relative flex w-full bg-card">
+        <textarea
+          spellCheck={false}
+          className={cn(
+            CONTROL,
+            "min-h-40 w-full resize-y bg-card p-3 text-sm leading-relaxed text-foreground focus-visible:shadow-none",
+            className,
+          )}
+          {...props}
+        />
+      </div>
     </div>
   );
 }
@@ -97,33 +99,37 @@ export type SelectProps = Omit<
   "size"
 > & {
   size?: ControlSize;
+  frameClassName?: string;
 };
 
 export function Select({
   className,
   children,
   size = "md",
+  frameClassName,
   ...props
 }: SelectProps) {
   return (
-    <div className={FRAME}>
-      <select
-        className={cn(
-          CONTROL,
-          CONTROL_SIZE[size],
-          "cursor-pointer appearance-none pl-3 pr-8 focus-visible:shadow-none",
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </select>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-accent"
-      >
-        ▾
-      </span>
+    <div className={cn(FRAME, frameClassName)}>
+      <div className="chamfer-sm relative flex w-full items-center bg-card">
+        <select
+          className={cn(
+            CONTROL,
+            CONTROL_SIZE[size],
+            "cursor-pointer appearance-none bg-card pl-3 pr-8 text-foreground focus-visible:shadow-none",
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </select>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-accent"
+        >
+          ▾
+        </span>
+      </div>
     </div>
   );
 }

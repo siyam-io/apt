@@ -63,3 +63,38 @@ export type ListMode = (typeof LIST_MODES)[number];
 
 export const RESPONSE_TABS = ["body", "headers"] as const;
 export type ResponseTab = (typeof RESPONSE_TABS)[number];
+
+export type EnvironmentVariable = {
+  key: string;
+  value: string;
+  enabled: boolean;
+};
+
+/**
+ * Interpolates variables formatted as {var} or {{var}} in a given string.
+ * Example: "{baseUrl}/api/users" with baseUrl="http://localhost:3001" -> "http://localhost:3001/api/users"
+ */
+export function interpolateVariables(
+  text: string,
+  variables: EnvironmentVariable[] | Record<string, string>,
+): string {
+  if (!text) return text;
+  const lookup: Record<string, string> = Array.isArray(variables)
+    ? Object.fromEntries(
+        variables
+          .filter((v) => v.enabled && v.key.trim().length > 0)
+          .map((v) => [v.key.trim(), v.value]),
+      )
+    : variables;
+
+  return text.replace(
+    /\{\{([a-zA-Z0-9_.-]+)\}\}|\{([a-zA-Z0-9_.-]+)\}/g,
+    (match, doubleKey, singleKey) => {
+      const key = doubleKey || singleKey;
+      if (Object.prototype.hasOwnProperty.call(lookup, key)) {
+        return lookup[key];
+      }
+      return match;
+    },
+  );
+}
