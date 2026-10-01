@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     [randomUUID(), ctx.user!.id, name],
   );
 
-  return json({ project: result.rows[0] }, { status: 201 });
+  return json({ project: result.rows[0] }, 201);
 }
 
 export const dynamic = "force-dynamic";

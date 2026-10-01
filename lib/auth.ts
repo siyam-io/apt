@@ -16,15 +16,20 @@ export type RequestContext = {
   project?: { id: string; name: string };
 };
 
-const derive = promisify(scrypt);
-const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+const derive = promisify(scrypt) as (
+  password: string | Buffer,
+  salt: string | Buffer,
+  keylen: number,
+  options: { N?: number; r?: number; p?: number; maxmem?: number },
+) => Promise<Buffer>;
+export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 
 export async function passwordHash(password: string, salt = randomBytes(16).toString("hex")) {
   const key = await derive(password, salt, 64, { N: 16384, r: 8, p: 1 });
   return `${salt}:${key.toString("hex")}`;
 }
 
-async function matches(password: string, stored: string): Promise<boolean> {
+export async function matches(password: string, stored: string): Promise<boolean> {
   const parts = stored.split(":");
   if (parts.length !== 2) return false;
   const [salt, key] = parts;
@@ -35,7 +40,7 @@ async function matches(password: string, stored: string): Promise<boolean> {
   );
 }
 
-function sessionToken(config: Config, request: NextRequest): string | undefined {
+export function sessionToken(config: Config, request: NextRequest): string | undefined {
   const name = sessionCookieName(config);
   const header = request.headers.get("cookie");
   if (!header) return undefined;

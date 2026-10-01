@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readConfig, securityHeadersFor } from "./lib/config";
 
-const config = readConfig();
+const appConfig = readConfig();
 
 const apiMatcher = new URLPattern({ pathname: "/api/:path*" });
 
@@ -10,7 +10,7 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Security headers on every response (mirrors Express app.use(security(...))).
-  const headers = securityHeadersFor(config, request);
+  const headers = securityHeadersFor(appConfig, request);
   for (const [key, value] of headers) {
     response.headers.set(key, value);
   }
@@ -25,12 +25,12 @@ export function middleware(request: NextRequest) {
     const isApi = true;
     const host = request.headers.get("host") ?? "";
 
-    if (config.production) {
-      const appHost = new URL(config.appUrl).host;
-      const previewHost = config.previewUrl ? new URL(config.previewUrl).host : null;
+    if (appConfig.production) {
+      const appHost = new URL(appConfig.appUrl).host;
+      const previewHost = appConfig.previewUrl ? new URL(appConfig.previewUrl).host : null;
       const allowedHosts = [appHost, ...(previewHost ? [previewHost] : [])];
       if (
-        !config.appUrl.startsWith("https://") ||
+        !appConfig.appUrl.startsWith("https://") ||
         !allowedHosts.some((h) => h === host)
       ) {
         return NextResponse.json(
