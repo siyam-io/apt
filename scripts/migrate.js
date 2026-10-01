@@ -9,7 +9,7 @@ if (!connectionString) {
 
 const pool = new pg.Pool({ connectionString });
 try {
-  const schemaPath = path.join(process.cwd(), "server", "schema.sql");
+  const schemaPath = path.join(process.cwd(), "schema.sql");
   const sql = await readFile(schemaPath, "utf8");
   const client = await pool.connect();
   try {

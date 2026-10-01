@@ -31,7 +31,7 @@ export function getPool(): pg.Pool | null {
 }
 
 export async function migrate(db: pg.Pool) {
-  const schemaPath = path.join(process.cwd(), "server", "schema.sql");
+  const schemaPath = path.join(process.cwd(), "schema.sql");
   const sql = await readFile(schemaPath, "utf8");
   const client = await db.connect();
   try {

@@ -1,16 +1,16 @@
 # Deploy APT
 
-Two deployables: the **Next.js frontend** and the **Express API**. Both need Node.js 24 and the same PostgreSQL database.
+A single unified deployable: the **Next.js application** (Frontend + API Routes). Needs Node.js 24 and a PostgreSQL database.
 
 ```
-browser ──► Next.js (Vercel)  ──►  Express API  ──►  PostgreSQL (Neon)
-             serves UI + /api/*     /api/request proxies
-             relay (API_URL)        outward traffic
+browser ──► Next.js (Vercel)  ──►  PostgreSQL (Neon)
+              serves UI & API
+              /api/*
 ```
 
 ## 1. Create a database
 
-Create a Neon PostgreSQL project. Copy its **pooled** connection string with TLS enabled. Keep the full connection string private; do not commit it or paste it in source code. Use a separate Neon branch/database for preview deployments if previews should not share production accounts or requests.
+Create a Neon PostgreSQL project. Copy its **pooled** connection string with TLS enabled. Keep the full connection string private; do not commit it or paste it in source code.
 
 ## 2. Initialize the schema
 
@@ -20,40 +20,19 @@ npm ci
 npm run db:migrate
 ```
 
-Alternatively, run `server/schema.sql` once in Neon's SQL editor. The migration is idempotent and does not delete existing records. The database user needs schema/table creation privileges for this step.
+Alternatively, run `schema.sql` once in Neon's SQL editor. The migration is idempotent and does not delete existing records.
 
-## 3. Deploy the API
+## 3. Deploy to Vercel
 
-Any Node host that runs a long-lived server works, for example:
+Import this repository into Vercel. Next.js is automatically detected. Add the environment variables:
 
-```bash
-npm run build:api    # optional: syntax-check server/
-npm run start:api    # binds 0.0.0.0:$PORT
-```
+| Variable       | Value                                                   |
+| -------------- | ------------------------------------------------------- |
+| `DATABASE_URL` | Neon pooled PostgreSQL connection string with TLS       |
+| `APP_URL`      | Your Vercel canonical HTTPS origin (e.g. `https://your-domain.vercel.app`) |
+| `NODE_ENV`     | `production`                                            |
 
-Required environment variables:
-
-| Variable       | Value                                                                 |
-| -------------- | --------------------------------------------------------------------- |
-| `DATABASE_URL` | Neon pooled PostgreSQL connection string, including TLS options        |
-| `APP_URL`      | The API's own exact HTTPS origin, e.g. `https://apt-api.up.railway.app` |
-| `NODE_ENV`     | `production`                                                           |
-
-`APP_URL` must be the origin the API is **served from**, not the frontend's origin. The API compares it against its own `Host` header and rejects mismatches with `503`, so a custom domain must be reflected here and the API redeployed.
-
-Deploying the API to Vercel instead is possible, but the repository's root `vercel.json` now declares the `nextjs` framework for the frontend, so the API needs its own Vercel project with the framework preset overridden to Express, no build command, `server/server.js` as the entrypoint and `maxDuration: 60`. A plain Node host avoids that split-config problem.
-
-## 4. Deploy the frontend
-
-Import this repository into Vercel. Next.js is detected from the root `vercel.json`. Add:
-
-| Variable  | Value                                                            |
-| --------- | ---------------------------------------------------------------- |
-| `API_URL` | The API origin from step 3, with no trailing slash                |
-
-`API_URL` defaults to `http://127.0.0.1:3001`, which is only correct for local development. Vercel supplies `VERCEL` and `VERCEL_URL` itself; they are unused here.
-
-Deploy after adding the variable. `API_URL` is read per request, but redeploy after changing it so new function instances pick it up.
+Deploy. Next.js serves both the UI and all `/api/*` endpoints natively.
 
 ## 5. Check the deployment
 
