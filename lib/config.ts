@@ -30,13 +30,28 @@ export function sessionCookieName(config: Config): string {
   return config.production ? "__Host-apt-session" : "apt-session";
 }
 
-function securityHeaders() {
+function securityHeaders(config: Config) {
+  const isProd = config.production;
+  const scriptSrc = isProd
+    ? "'self' 'unsafe-inline'"
+    : "'self' 'unsafe-inline' 'unsafe-eval'";
+  const connectSrc = isProd ? "'self'" : "'self' ws: wss:";
+  const csp = [
+    "default-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    `script-src ${scriptSrc}`,
+    `connect-src ${connectSrc}`,
+    "font-src 'self' data:",
+    "img-src 'self' data: blob:",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+
   return new Headers({
-    "Content-Security-Policy":
-      "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    "Content-Security-Policy": csp,
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
-    "Cache-Control": "no-store",
   });
 }
 
@@ -74,7 +89,7 @@ export function securityHeadersFor(
   config: Config,
   request: NextRequest,
 ): Headers {
-  const headers = securityHeaders();
+  const headers = securityHeaders(config);
   const origin = request.headers.get("origin");
   if (origin === null) return headers;
   const allowed = resolvedOrigin(config, request);
