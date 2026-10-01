@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <path d="M0 6 L6 0 H26 L32 6 V26 L26 32 H6 L0 26 Z" fill="#00ff88" />
+  <path d="M3 7 L7 3 H25 L29 7 V25 L25 29 H7 L3 25 Z" fill="#0a0a0f" />
+  <text
+    x="16"
+    y="22"
+    font-family="monospace"
+    font-size="17"
+    font-weight="700"
+    fill="#00ff88"
+    text-anchor="middle"
+  >a</text>
+</svg>
